@@ -1,0 +1,141 @@
+---
+title: "Mini-Batch Gradient Descent"
+author: "MAROUN Gaby, LOPEZ Fabien et CERVERA-LARRICQ Pierre-Marie"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE,
+	comment = NA,
+	prompt = FALSE,
+	tidy = TRUE
+)
+opts_knit$set(width=75)
+# setwd(getwd())
+# setwd("C:/Users/gabym/Desktop/Semestre 3 UPPA/Machine Learning/Projet/Batch grad desc/")
+```
+
+
+In this tutorial, we are going to implement a mini-Batch Gradient Descent after having understood the Batch and the Stochastic Gradient Descent mentioned in the course of lecture4.
+
+# To Start,
+
+We simulate some samples from a true model into x and y:
+
+```{r minibatch}
+set.seed(10)
+m <-5000 ;d <-2 ;w <-c(0.5,-1.5)
+x <-matrix(rnorm(m*2),ncol=2,nrow=m)
+ptrue <-1/(1+exp(-x%*%matrix(w,ncol=1)))
+y <-rbinom(m,size=1,prob = ptrue)
+(w.est <-coef(glm(y~x[,1]+x[,2]-1,family=binomial)))
+
+```
+
+# The second step 
+
+It was to implement the cost function represented by the cross-entropy loss:
+
+```{r minibatch1}
+
+Cost.fct <-function(w1,w2) {
+  w <-c(w1,w2) 
+  cost <-sum(-y*x%*%matrix(w,ncol=1)+log(1+exp(x%*%matrix(w,ncol=1))))
+  return(cost)
+}
+
+
+w1 <-seq(0, 1, 0.05)
+w2 <-seq(-2, -1, 0.05)
+cost <-outer(w1, w2, function(x,y)
+  mapply(Cost.fct,x,y))
+# 
+# contour(x = w1, y = w2, z = cost)
+# points(x=w.est[1],y=w.est[2],col="black",lwd=2,lty=2,pch=8)
+```
+
+# The third step
+
+Was to implement the Batch Gradient Descent:
+
+```{r minibatch2}
+sigmoid <-function(x) 1/(1+exp(-x))
+```
+
+# Implementation 
+
+The idea behind the mini-batch is cutting a batch into many small batches, so our way of representing that was of the following form:
+
+```{r minibatch4}
+
+xbatch <- matrix(0, ncol = 2)
+ybatch <- matrix(0, ncol = 1)
+
+
+
+
+minibatch2.GD <-function(theta,alpha,epsilon,iter.max=500){ 
+  tol <-1
+  iter <-1
+  res.cost <-Cost.fct(theta[1],theta[2])
+  res.theta <-theta
+  while (tol >epsilon &iter<iter.max) {
+    xbatch <- x[iter,]
+    ybatch <- y[iter]
+    
+    for (j in iter+1:iter+9) {
+      xbatch <- rbind(xbatch,x[j,])
+      ybatch <- rbind(ybatch,y[j])
+    }
+    error <-sigmoid(xbatch%*%matrix(theta,ncol=1))-ybatch
+    theta.up <-theta-as.vector(alpha*matrix(error,nrow=1)%*%xbatch)
+    res.theta <-cbind(res.theta,theta.up)
+    tol <-sum((theta-theta.up)**2)^0.5
+    theta <-theta.up
+    cost <-Cost.fct(theta[1],theta[2])
+    res.cost <-c(res.cost,cost)
+    iter <-iter + 10
+  }
+  result <-list(theta=theta,res.theta=res.theta,res.cost=res.cost,iter=iter,tol.theta=tol)
+  return(result)
+}
+```
+
+# Result
+
+The resulted contour was of the following form
+
+```{r minibatch5}
+dim(x);length(y)
+
+theta0 <-c(0,-1); alpha=0.002
+test <-minibatch2.GD(theta=theta0,alpha,epsilon =0.00001)
+plot(test$res.cost,ylab="cost function",xlab="iteration",main="alpha=0.01",type="l")
+abline(h=Cost.fct(w.est[1],w.est[2]),col="red")
+
+contour(x = w1, y = w2, z = cost)
+points(x=w.est[1],y=w.est[2],col="black",lwd=2,lty=2,pch=8)
+record <-as.data.frame(t(test$res.theta))
+points(record,col="red",type="o")
+
+```
+
+# Conclusion
+
+We can assume that the algorithm is good as we can see how close to the center the points passes 
+
+
+
