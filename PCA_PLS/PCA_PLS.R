@@ -1,0 +1,194 @@
+BiocManager::install('mixOmics')
+library(mixOmics)
+data(nutrimouse)
+X <- nutrimouse$gene
+Y <- nutrimouse$lipid
+dim(X); dim(Y)
+
+MyResult.pls <- pls(X,Y, ncomp=10)
+
+plotIndiv(MyResult.pls)
+plotVar(MyResult.pls)
+
+plotIndiv(MyResult.pls)
+
+plotVar(MyResult.pls)
+
+plotIndiv(MyResult.pls, group = nutrimouse$genotype,
+          rep.space = "XY-variate", legend = TRUE,
+          legend.title = 'Genotype',
+          ind.names = nutrimouse$diet,
+          title = 'Nutrimouse: PLS')
+
+plotVar(MyResult.pls, cex=c(3,2), legend = TRUE)
+
+plotVar(MyResult.pls, cutoff=0.5)
+
+my.vip <- sort(vip(MyResult.pls)[,1],decreasing = TRUE)
+barplot(my.vip[1:50],
+        beside = FALSE,
+        ylim = c(0, max(my.vip)), legend = rownames(my.vip)[1:50],
+        main = "Variable Importance in the Projection", font.main = 4)
+
+plotLoadings(MyResult.pls, comp = 1, size.name = rel(0.5))
+
+
+MyResult.pls <- pls(X,Y, ncomp = 6)
+set.seed(30) # for reproducbility
+perf.pls <- perf(MyResult.pls, validation = "Mfold", folds = 5,
+                 progressBar = FALSE, nrepeat = 10)
+
+
+
+
+
+plot(perf.pls$Q2.total)
+abline(h = 0.0975)
+
+###########################################
+################### PCA ###################
+###########################################
+
+library(bigstatsr)
+set.seed(1)
+X <- big_attachExtdata()
+n <- nrow(X)
+X[1:2,1:3]
+
+dim(X)
+
+# We only use only half of the data
+ind <- sort(sample(n, n/2))
+test <- big_SVD(X, fun.scaling = big_scale(),
+                ind.row = ind)
+str(test)
+
+# we project the sample on a lower dimensional space to see any
+# structure
+plot(test$u)
+
+
+# A more realistic projection based on the scores
+scores <- test$u %*% diag(test$d)
+plot(scores[,2]~scores[,1])
+
+
+# using the classical pca from R
+pca <- prcomp(X[ind, ], center = TRUE, scale. = TRUE)
+# same scaling
+all.equal(test$center, pca$center)
+
+all.equal(test$scale, pca$scale)
+
+# projecting on new data
+ind2 <- setdiff(rows_along(X), ind)
+scores.test2 <- predict(test, X, ind.row = ind2)
+
+plot(scores[,2]~scores[,1])
+points(scores.test2[,2]~scores.test2[,1],col="red")
+
+
+# We start by reading an image and we perform SVDs on this image.
+if (!"jpeg" %in% installed.packages())
+  install.packages("jpeg")
+# Read image file into an array with three channels
+# (Red-Green-Blue, RGB)
+liquet <- jpeg::readJPEG("C:/Users/gabym/Desktop/Semestre 3 UPPA/Projet Integrateur/Livrable 1/oneAtlas.jpg")
+r <- liquet[, , 1] ; g <- liquet[, , 2] ; b <- liquet[, , 3]
+# Performs full SVD of each channel
+liquet.r.svd <- svd(r) ; liquet.g.svd <- svd(g) ;
+liquet.b.svd <- svd(b)
+rgb.svds <- list(liquet.r.svd, liquet.g.svd, liquet.b.svd)
+
+# These two functions will be needed to display an image stored in an
+# RGB array:
+# Function to display an image stored in an RGB array
+plot.image <- function(pic, main = "") {
+  h <- dim(pic)[1] ; w <- dim(pic)[2]
+  plot(x = c(0, h), y = c(0, w), type = "n", xlab = "",
+       ylab = "", main = main)
+  rasterImage(pic, 0, 0, h, w)
+}
+
+compress.image <- function(rgb.svds, nb.comp) {
+  # nb.comp (number of components) should be less than min(dim(img[,,1])),
+  # i.e., 170 here
+  svd.lower.dim <- lapply(rgb.svds, function(i)
+    list(d = i$d[1:nb.comp],
+         u = i$u[, 1:nb.comp],
+         v = i$v[, 1:nb.comp]))
+  img <- sapply(svd.lower.dim, function(i) {
+    img.compressed <- i$u %*% diag(i$d) %*% t(i$v)
+  }, simplify = 'array')
+  img[img < 0] <- 0
+  img[img > 1] <- 1
+  return(list(img = img, svd.reduced = svd.lower.dim))
+}
+
+par(mfrow = c(1, 2))
+plot.image(liquet, "Original image")
+p <- 20 ; plot.image(compress.image(rgb.svds, p)$img,
+                     paste("SVD with", p, "components"))
+
+
+object.size(rgb.svds) # Original image
+object.size(compress.image(rgb.svds, p)$svd.reduced)
+
+# if (!requireNamespace("BiocManager", quietly = TRUE))
+#   install.packages("BiocManager")
+# BiocManager::install("mixOmics", version = "3.8")
+library(mixOmics)
+
+data(liver.toxicity)
+X <- liver.toxicity$gene
+
+MyResult.pca <- pca(X) # 1 Run the method
+plotIndiv(MyResult.pca) # 2 Plot the samples
+plotVar(MyResult.pca) # 3 Plot the variables
+
+# samples
+plotIndiv(MyResult.pca)
+# variables
+plotVar(MyResult.pca)
+
+plotIndiv(MyResult.pca,
+          group = liver.toxicity$treatment$Dose.Group,
+          legend = TRUE)
+
+# Customize plots: two factors displayed
+plotIndiv(MyResult.pca, ind.names = FALSE,
+          group = liver.toxicity$treatment$Dose.Group,
+          pch = as.factor(liver.toxicity$treatment$Time.Group),
+          legend = TRUE, title = 'Liver toxicity: genes, PCA comp 1 - 2',
+          legend.title = 'Dose', legend.title.pch = 'Exposure')
+
+# second PCA with 3 components:
+MyResult.pca2 <- pca(X, ncomp = 3)
+plotIndiv(MyResult.pca2, comp = c(1,3), legend = TRUE,
+          group = liver.toxicity$treatment$Time.Group,
+          title = 'Multidrug transporter, PCA comp 1 - 3')
+# Here, the 3rd component on the y-axis clearly highlights a time of
+# exposure effect.
+
+# Amount of variance explained and choice of number of
+# components
+MyResult.pca3 <- pca(X, ncomp = 10)
+plot(MyResult.pca3)
+
+
+# We can also have a look at the variable coefficients in each
+# component with the loading vectors.
+# a minimal example
+plotLoadings(MyResult.pca)
+
+# a customized example to only show the top 100 genes
+# and their gene name
+plotLoadings(MyResult.pca, ndisplay = 100,
+             name.var = liver.toxicity$gene.ID[, "geneBank"],
+             size.name = rel(0.3))
+
+plotIndiv(MyResult.pca2,
+          group = liver.toxicity$treatment$Dose.Group,
+          style="3d",legend = TRUE,
+          title = 'Liver toxicity: genes, PCA comp 1 - 2 - 3')
+
