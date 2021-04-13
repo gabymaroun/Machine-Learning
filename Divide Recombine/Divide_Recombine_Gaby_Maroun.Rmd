@@ -1,0 +1,135 @@
+---
+title: "Divide Recombine"
+author: "MAROUN Gaby"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE,
+	comment = NA,
+	prompt = FALSE,
+	tidy = TRUE
+)
+opts_knit$set(width=75)
+# setwd(getwd())
+
+```
+
+
+# Principle of Divide and Recombine
+
+The three steps of the “Divide and Recombine" principle comes as follow:
+
+1. Splitting a big dataset into G blocks/chunks;
+
+2. Processing each block separately (possibly in parallel);
+
+3. Combining/Aggregating the solutions from each block to form a final solution to the full
+data
+
+
+
+```{r 1}
+setwd("C:/Users/gabym/Desktop/Semestre 3 UPPA/Machine Learning/WORKSHOP_DATA_SET_LIGHT/WORKSHOP_DATA_SET_LIGHT/")
+
+library(spNNGP)
+
+```
+
+```{r 2}
+
+# Ridge vs. OLS in the presence of collinearity
+
+library(MASS)
+set.seed(10)
+x1 <- rnorm(20)
+x2 <- rnorm(20,mean=x1,sd=.01)
+## cor(x1,x2) ## 0.9999435
+y <- 3+x1+x2+rnorm(20)
+
+lm(y~x1+x2)$coef
+
+
+lm.ridge(y~x1+x2,lambda=2)
+
+```
+
+An alternative is to use the R package oem which use orthogonalizing expectation maximization
+
+```{r 3}
+
+library(bigmemory)
+
+
+# we only select the first 120000 images as a train data set
+
+dataX <- attach.big.matrix(dget("Xda.desc"))
+Xdes <- describe(dataX)
+Xdes
+
+dataX_train <- dataX[1:120000,]
+class(dataX_train)
+
+dim(dataX_train)
+
+# we remove variables without any varition
+
+col.sup <- which(apply(dataX_train,2,var)==0)
+dataX_train <- dataX_train[,-c(col.sup)]
+dim(dataX_train)
+
+# we transform it on a big matrix object
+
+dataX_train_big <- as.big.matrix(dataX_train,backingfile="dataX_train_big.bin",
+                                 descriptorfile ="dataX_train_big.desc")
+class(dataX_train_big)
+
+is.filebacked(dataX_train_big)
+
+```
+
+
+```{r 4}
+library(oem)
+ylabel <- read.csv(file="emnist_labels_training_set.csv"
+                   ,header=FALSE)[,1]
+lambda <- 2
+yy <- as.numeric(ylabel)[1:120000]
+model.oem <- big.oem(x=dataX_train_big,y=yy,penalty=c("elastic.net")
+                     ,alpha=0,family="gaussian",lambda=2)
+error.train <- mean(predict(model.oem,dataX_train_big)-yy)**2
+error.train
+
+
+y.test <- as.numeric(ylabel)[120001:240000]
+error.test <- mean(predict(model.oem,dataX[120001:240000,-c(col.sup)])-y.test)**2
+error.test
+```
+
+# Summary
+
+Working on a big amount of data can exceed the capabilities of the normal computer, that's when the principle of divide and recombine can be useful. By splitting the dataset, we do the analysis on the chunks and then combine the results to one result that is asymptotically equivalent to the result of working on the whole data all at once. By doing so, we reduce the computing time and the amount of memory required. 
+Although, this process cannot always be used because it depends on the independence across subsets (for example not suitable for spatial random field as coordinates cannot be broken into many). 
+
+The benefits of ridge regression are most striking in the presence of multicollinearity. If the set is not too large, we can calculate $X^TX$ and $X^Ty$ and then inverse it to a p × p matrix.
+
+I would like to note, that in the past week, while working on a big geometric data of 71millions of rows of the French weather indices since 2001 at the company where I'm pursuing my apprenticeship, I had to apply the Divide and recombine principle by splitting the data to 25 blocks representing the different regions (Zone Agro-Meteorologique en France), analysing each of the smaller datasets and recombining the results into one resulting dataset, that represents the analysis on all of the France Territory. 
+
+# Questions
+
+How can the Nearest Neighbor Gaussian Processes be used on R?
+
+I would like to see a simple example of orthogonalizing expectation maximization for the idea to become clearer.

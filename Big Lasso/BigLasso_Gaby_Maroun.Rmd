@@ -1,0 +1,145 @@
+---
+title: "Big Lasso"
+author: "MAROUN Gaby"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE,
+	comment = NA,
+	prompt = FALSE,
+	tidy = TRUE
+)
+opts_knit$set(width=75)
+
+```
+
+# Introduction 
+
+A memory and computationally efficient solver for fitting the Lasso model with Big Data in R.
+
+```{r 1}
+setwd("C:/Users/gabym/Desktop/Semestre 3 UPPA/Machine Learning/WORKSHOP_DATA_SET_LIGHT/WORKSHOP_DATA_SET_LIGHT/")
+## Fichier Big LASO PDF
+# install_github("YaohuiZeng/biglasso"):
+library("biglasso")
+
+```
+
+```{r 2}
+
+
+########################################################################"
+#######################2.2A not too large data set: Colon data set###########
+###############################################################################
+data(colon)
+X <- colon$X
+y <- colon$y
+dim(X)
+
+
+#we convert X to a big.matrix object.
+X.bm <- as.big.matrix(X)  #X.bm is the pointer of the data matrix
+str(X.bm) #data structure
+
+fit <- biglasso(X.bm, y, family = "binomial")
+plot(fit) # beta hat represent the plenty variable , depending the choice of lambda 
+#on fixe lambda et on a le resultat de notre modèle 
+#For each variable we have a lambda that we set and we have a value for each coefficient
+#We should have a curve for each fixed lambda (so 2000 curves here). When a variable goes to 0, it stays there.
+
+
+#choose the tunning paramter using cross-validation approach
+## 10-fold cross-valiation in parallel
+cvfit <- cv.biglasso(X.bm, y, seed = 1234, family = "binomial", nfolds = 10, ncores = 4)
+cvfit
+#plot the cross-validation plots
+par(mfrow = c(2, 2), mar = c(3.5, 3.5, 3, 1) ,mgp = c(2.5, 0.5, 0))
+plot(cvfit, type = "all")
+
+#Summarize CV object:
+summary(cvfit)
+#The following code displays the full lasso solution path, with a red dashed line indicating the selected lambda»
+plot(cvfit$fit)
+abline(v = log(cvfit$lambda.min), col = 2, lty = 2)
+
+coefs <- as.matrix(coef(cvfit))
+coefs[coefs != 0, ]
+
+as.vector(predict(cvfit, X = X.bm, type = "class")) # 
+as.vector(predict(cvfit, X = X.bm))
+          
+predict(cvfit, type = "nvars") # nvars : Number of remaining variables in beta
+
+predict(cvfit, type = "vars") 
+
+
+```
+
+```{r 3}
+
+#############################################################
+############# 3. Big data ####################################
+#############################################################
+library("biglasso")
+
+
+#on a 200 beta differents de zero
+dataXdesc<-dget("C:/Users/gabym/Desktop/Semestre 3 UPPA/Machine Learning/WORKSHOP_DATA_SET_LIGHT/WORKSHOP_DATA_SET_LIGHT/dataX_train_big.desc")
+system.time(dataX <- attach.big.matrix(dataXdesc))
+str(dataX)
+
+
+dim(dataX)
+## [1] 3000 1340000
+dataX[1:10,1:9]
+
+##############  I couldn't find the y_3000_1340000_200_logistic.txt file #######################
+
+# # y <- as.matrix(read.table("C:/Users/gabym/Desktop/Semestre 3 UPPA/Machine Learning/WORKSHOP_DATA_SET_LIGHT/WORKSHOP_DATA_SET_LIGHT/y_3000_1340000_200_logistic.txt", header = F))
+# class(y)
+# ## [1] "matrix"
+# 
+# dim(y)
+# ## [1] 3000 1
+# 
+# table(y)
+# ## y
+# ## 0    1
+# ## 1554 1446
+
+# time <- system.time(
+#   fit <- biglasso(dataX, y, family = "binomial", screen = "SSR-Slores",ncores = 6)
+# )
+
+
+# plot(fit)
+# 
+# coefs <- as.matrix(coef(fit, lambda = 0.06))
+# coefs[coefs != 0, ]
+# 
+# predict(fit, lambda = 0.06, type = "nvars")
+```
+
+# Summary
+
+The BigLasso library is an efficient memory and computation solver for the Lasso model to equip with Big Data.
+The big lasso requires the design matrix to be a big.matrix object and the resulting prediction provides options to extract different statistics from the fitted model.
+When we are in front of a big data file, it is recommended to convert the data file to big.matrix saved on file using a file cache. It might take a long time at first, but it's only done once, then we could use the generated .bin and .desc files whenever we need the data as if it were a normal R object.
+
+# Questions
+
+When do we use the biglasso library instead of the other options we have learned?
