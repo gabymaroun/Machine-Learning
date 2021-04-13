@@ -1,0 +1,202 @@
+---
+title: "Softmax and Logistic Regression"
+author: "MAROUN Gaby, LOPEZ Fabien et CERVERA-LARRICQ Pierre-Marie"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE,
+	comment = NA,
+	prompt = FALSE,
+	tidy = TRUE
+)
+opts_knit$set(width=75)
+# setwd(getwd())
+
+```
+
+In this tutorial, we are going to implement a Softmax Regression as a multinomial class alongside a Logistic Regression using the binomial class by applicating them on the famous MNIST data set.
+
+# Data Import
+
+First, we import and extract the MNIST data
+
+```{r multi}
+setwd("C:/Users/gabym/Desktop/Semestre 3 UPPA/Machine Learning/MATERIAL_STUDENT/Mnist/")
+file_training_set_image <- "train-images-idx3-ubyte/train-images.idx3-ubyte"
+file_training_set_label <- "train-labels-idx1-ubyte/train-labels.idx1-ubyte"
+file_test_set_image <- "t10k-images-idx3-ubyte/t10k-images.idx3-ubyte"
+file_test_set_label <- "t10k-labels-idx1-ubyte/t10k-labels.idx1-ubyte"
+
+nb_Chiffre <- 1000
+nb_Pixel <- 28
+
+extract_images <- function(file, nbimages = NULL) {
+  if (is.null(nbimages)) { # We extract all images
+    nbimages <- as.numeric(paste("0x", paste(readBin(file, "raw", n = 8)[5:8], collapse = ""), sep = ""))
+  }
+  nbrows <- as.numeric(paste("0x", paste(readBin(file, "raw", n = 12)[9:12], collapse = ""), sep = ""))
+  nbcols <- as.numeric(paste("0x", paste(readBin(file, "raw", n = 16)[13:16], collapse = ""), sep = ""))
+  raw <- readBin(file, "raw", n = nbimages * nbrows * nbcols + 16)[-(1:16)]
+  return(array(as.numeric(paste("0x", raw, sep="")), dim = c(nbcols, nbrows, nbimages)))
+}
+extract_labels <- function(file) {
+  nbitem <- as.numeric(paste("0x", paste(readBin(file, "raw", n = 8)[5:8], collapse = ""), sep = ""))
+  raw <- readBin(file, "raw", n = nbitem + 8)[-(1:8)]
+  return(as.numeric(paste("0x", raw, sep="")))
+}
+
+labels_training_set <- extract_labels(file_training_set_label)
+labels_test_set <- extract_labels(file_test_set_label)
+images_training_set <- extract_images(file_training_set_image, 60000)
+images_training_set=t(matrix(images_training_set, dim(images_training_set)[1]*dim(images_training_set)[2], dim(images_training_set)[3]))
+
+# x <-images_training_set
+# y <- labels_training_set
+images_test_set <- extract_images(file_test_set_image, 1000)
+images_test_set=t(matrix(images_test_set, dim(images_test_set)[1]*dim(images_test_set)[2], dim(images_test_set)[3]))
+```
+
+As we can see, we are facing a dimensional problem and so the need to use a penalized regression.
+
+# Softmax Regression
+
+## Ridge Regression
+
+We first applied $ridge$ with an $\alpha = 0$, using the $glmnet$ library, on the test set and indicating the class to be $multinomial$ representing the softmax regression
+
+
+```{r ridge}
+
+## multinomiale
+library(glmnet)
+# tune <- cv.glmnet(x,y,alpha=0)
+# plot(tune)
+
+x <- images_training_set
+y <- labels_training_set
+
+temporary <- x[1:1000,]
+temporary2<- y[1:1000]
+
+# Ridge
+multinomial_reg <- cv.glmnet(temporary, temporary2, family = "multinomial", type.measure = "class", alpha = 0)  
+plot(multinomial_reg)
+pred = predict(multinomial_reg, images_test_set, s=multinomial_reg$lambda.min, type="class")
+# pred
+mean(labels_test_set[1:1000] == pred)
+```
+
+As we can see, the accuracy of this model is above $84\%$, which makes it a great contender. 
+
+## Lasso Regression
+We then applied $lasso$ with an $\alpha = 1$, and the result came as follow
+
+
+```{r lasso}
+# Lasso
+binomimale_reg <- cv.glmnet(temporary, temporary2, family = "multinomial", type.measure = "class", alpha = 1)  
+plot(binomimale_reg)
+pred = predict(binomimale_reg, images_test_set, s=binomimale_reg$lambda.min, type="class")
+# pred
+mean(labels_test_set[1:1000] == pred)
+
+```
+
+We can assume that in this example, using the ridge regression turned out to be the best fitted model.
+
+
+# Logistic Regression
+
+The $binomial$ class can't be applied directly on the entire set so we had to turn to the One$vs$All model and that's why we decomposed our data into 10 different model representing the 10 digits from $0$ to $9$. 
+
+But first, we had to fill a matrix called $vrai_y$ with the real prediction data by fillin it with -1 and putting a 1 in the colomn of the right label of each image
+
+```{r binom}
+#####################
+## Binomiale ##
+###############
+
+
+temp <- matrix(nrow = 0, ncol = 10)
+vrai_y <- matrix(nrow = 0, ncol = 10)
+for(i in 1:1000){
+  temp <- matrix(-1, 1, 10)
+  temp[labels_training_set[i] + 1] <- 1
+  vrai_y <- rbind(vrai_y, temp)
+}
+
+```
+
+In this step, we created the 10 different model for each colomn of the $vrai_y$ using a logistic regression represented by the $binomial$ family of the $glmnet$ library
+
+```{r binom1}
+temp0 <-matrix(nrow = 0, ncol=10)
+temp1 <-matrix(nrow = 0, ncol=10)
+temp2 <-matrix(nrow = 0, ncol=10)
+temp3 <-matrix(nrow = 0, ncol=10)
+temp4 <-matrix(nrow = 0, ncol=10)
+temp5 <-matrix(nrow = 0, ncol=10)
+temp6 <-matrix(nrow = 0, ncol=10)
+temp7 <-matrix(nrow = 0, ncol=10)
+temp8 <-matrix(nrow = 0, ncol=10)
+temp9 <-matrix(nrow = 0, ncol=10)
+
+
+temp0 <- cv.glmnet(x[1:1000,], vrai_y[1:1000,1], family = "binomial", alpha = 1)    
+temp1 <- cv.glmnet(x[1:1000,], vrai_y[1:1000,2], family = "binomial", alpha = 1)    
+temp2 <- cv.glmnet(x[1:1000,], vrai_y[1:1000,3], family = "binomial", alpha = 1)    
+temp3 <- cv.glmnet(x[1:1000,], vrai_y[1:1000,4], family = "binomial", alpha = 1)    
+temp4 <- cv.glmnet(x[1:1000,], vrai_y[1:1000,5], family = "binomial", alpha = 1)    
+temp5 <- cv.glmnet(x[1:1000,], vrai_y[1:1000,6], family = "binomial", alpha = 1)    
+temp6 <- cv.glmnet(x[1:1000,], vrai_y[1:1000,7], family = "binomial", alpha = 1)    
+temp7 <- cv.glmnet(x[1:1000,], vrai_y[1:1000,8], family = "binomial", alpha = 1)    
+temp8 <- cv.glmnet(x[1:1000,], vrai_y[1:1000,9], family = "binomial", alpha = 1)    
+temp9 <- cv.glmnet(x[1:1000,], vrai_y[1:1000,10], family = "binomial", alpha = 1)    
+```
+
+We ended by comparing each one vs all the others, and the accuracy came as follow
+
+```{r binom2}
+
+probabilities0 <- predict(temp0, x[1:1000,], family = "binomial", s=temp1$lambda.min, type="class")
+probabilities1 <- predict(temp1, x[1:1000,], family = "binomial", s=temp2$lambda.min, type="class")
+probabilities2 <- predict(temp2, x[1:1000,], family = "binomial", s=temp2$lambda.min, type="class")
+probabilities3 <- predict(temp3, x[1:1000,], family = "binomial", s=temp2$lambda.min, type="class")
+probabilities4 <- predict(temp4, x[1:1000,], family = "binomial", s=temp2$lambda.min, type="class")
+probabilities5 <- predict(temp5, x[1:1000,], family = "binomial", s=temp2$lambda.min, type="class")
+probabilities6 <- predict(temp6, x[1:1000,], family = "binomial", s=temp2$lambda.min, type="class")
+probabilities7 <- predict(temp7, x[1:1000,], family = "binomial", s=temp2$lambda.min, type="class")
+probabilities8 <- predict(temp8, x[1:1000,], family = "binomial", s=temp2$lambda.min, type="class")
+probabilities9 <- predict(temp9, x[1:1000,], family = "binomial", s=temp2$lambda.min, type="class")
+
+
+# Model accuracy
+observed.classes <- vrai_y[1:1000]
+mean0 = mean(probabilities0 == observed.classes)
+mean1 = mean(probabilities1 == observed.classes)
+mean2 = mean(probabilities2 == observed.classes)
+mean3 = mean(probabilities3 == observed.classes)
+mean4 = mean(probabilities4 == observed.classes)
+mean5 = mean(probabilities5 == observed.classes)
+mean6 = mean(probabilities6 == observed.classes)
+mean7 = mean(probabilities7 == observed.classes)
+mean8 = mean(probabilities8 == observed.classes)
+mean9 = mean(probabilities9 == observed.classes)
+
+data.frame(mean0,mean1,mean2,mean3,mean4,mean5,mean6,mean7,mean8,mean9)
+```
+
