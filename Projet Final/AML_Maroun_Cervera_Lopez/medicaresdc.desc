@@ -1,0 +1,5 @@
+new("big.matrix.descriptor", description = list(sharedType = "FileBacked", 
+    filename = "medicaresdc.bin", dirname = "C:/Users/gabym/Desktop/Semestre 3 UPPA/Machine Learning/Projet Final/", 
+    totalRows = 2801660L, totalCols = 10L, rowOffset = c(0, 2801660
+    ), colOffset = c(0, 10), nrow = 2801660, ncol = 10, rowNames = NULL, 
+    colNames = NULL, type = "integer", separated = FALSE))

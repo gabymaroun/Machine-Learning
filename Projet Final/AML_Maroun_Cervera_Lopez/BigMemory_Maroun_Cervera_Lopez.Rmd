@@ -1,0 +1,449 @@
+---
+title: "The BigMemory Suite of Packages "
+output:
+  pdf_document: 
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    highlight: tango
+  html_notebook: default
+---
+
+# Introduction
+
+As put by Kane et al. (2013), it was quite puzzling when very few of the competitors, for the Million dollars prize in the Netflix challenge, were statisticians. Perhaps this is because the statistical community has always used SAS SPSS and R. The first two well-equipped tools for dealing with big data, but they are not user-friendly when trying to implement a new method. On the other hand, R is very supportive of innovation, but it was not equipped to handle large flix datasets (big data). A lot has changed in R since 2006.
+
+The choice to work on this chapter is due to its importance in our future as data scientist with a master's degree in Big Data. 
+
+The main purpose of the `bigmemory` package is to allow us to work with big data, potentially more than the RAM available in our devices.
+
+Alternatively, you can read only part of the X matrix, check all the variables in that part, and then read another part. To do this, simply read array X using `read.big.matrix` from the `bigmemory` package. We can also create, store, access and manipulate massive arrays.
+
+Many specialized packages accompany the bigmemory package such as biganalytics, synchronicity, bigalgebra, and bigtabulate
+
+The `big.matrix` class is designed for matrices containing elements of type double, integer, short, or char which is similar to the traditional R matrix but with wiser, more structured memory consumption better than the latter.
+
+We will now explain the workflow of the bigmemory package. We will see together that `bigmemory`, with the large matrix object `big.matrix` that creates it, is a very powerful mechanism. If you are dealing with large digital matrices, you will find it very useful, but if you are dealing with big data frames, or any other non-digital matrix, Bigmemory might not be the right tool, and you should try ff, or the commercial package, RevoScaleR.
+
+# Data
+
+The dataset that has the data from $CMS 2010 Medicare carrier claims$ can be downloaded from the following path,
+
+```{r eval=FALSE, include=FALSE}
+download.file("http://www.cms.gov/Research-Statistics-Data-and-Systems/Statistics-Trends-and-Reports/BSAPUFS/Downloads/2010_Carrier_PUF.zip", "2010_Carrier_PUF.zip")
+unzip(zipfile="2010_Carrier_PUF.zip")
+```
+The file contains eleven (11) variables:
+
+* Gender (`BENE_SEX_IDENT_CD`): (1) male or (2) female.
+
+* Age (`BENE_AGE_CAT_CD`): The age of the beneficiary, declared in six categories: (1) under
+65, (2) 65-69, (3) 70-74, (4) 75-79, (5) 80-84, (6) 85 and more.
+
+* ICD-9-CM diagnostic code (`CAR_LINE_ICD9_DGNS_CD`): International Classification of Diseases, Clinical Modification Version 9 (ICD-9-CM) is a three-digit code (four digits for
+Diagnostic codes ICD-9-CM “E”) .7 In this PUF, 926 codes of this type are observed.
+
+* HCPCS code (`CAR_LINE_HCPCS_CD`): These are Healthcare Common Procedure Classification Coding System (HCPCS) codes (level I and level II) and take 4900 possible values   in the PUF of CMS 2010 BSA carrier line items.
+
+* BETOS code (`CAR_LINE_BETOS_CD`): This is the type of service Berenson-Eggers codes based on clinically meaningful categories of procedures and services. In this PUF, 98 codes of this type are observed.
+
+* Number of services (`CAR_LINE_SRVC_CNT`): It is the count of the total number of services associated with the line item, between 1 and 999.
+
+* Type of supplier code (`CAR_LINE_PRVDR_TYPE_CD`): This variable identifies the type of supplier providing the service. Examples of types of providers include clinics, physicians, and independent laboratories. In this PUF, 6 of these codes are observed.
+                                                           
+* Type of service code (`CAR_LINE_CMS_TYPE_SRVC_CD`): identifies the type of service. Examples of types of services include medical care, surgery, and consultation. In this PUF, 20 such codes are observed.
+
+* Place of service code (`CAR_LINE_PLACE_OF_SRVC_CD`): This variable identifies the place of service. Examples of service locations include the office, independent laboratory, inpatient hospital, outpatient hospital, and emergency room. In this PUF, 28 codes of this type are observed.
+
+* Medicare payment amount (`CAR_HCPCS_PMT_AMT`): Medicare payment is rounded according to the rules. Note that a payment amount between \$ 0 and \$ 2.49 is rounded to \$ 0 according to the rounding rules.
+
+For more information, you can consult the pdf files $2010\_BSA\_Carrier\_Line\_Items\_PUF\_DataDic.pdf$ and $2010\_BSA\_Carrier\_Line_Items\_PUF\_GenDoc.pdf$ by following this link [2010 Basic Stand Alone Carrier Line Items PUF](https://data.cms.gov/Medicare-Claims/2010-Basic-Stand-Alone-Carrier-Line-Items-PUF/4ypi-pds4)
+.
+
+# Big memory
+
+## `read.big.matrix`
+
+First of all, we start by creating a memory-mapped files using the bigmemory library. This command could be used only once.
+
+```{r 2, eval=FALSE, include=FALSE}
+library(bigmemory)
+
+x <- read.big.matrix("2010_BSA_Carrier_PUF.csv", header = TRUE, 
+                     backingfile = "medicares.bin", 
+                     descriptorfile = "medicares.desc", 
+                     type = "integer")
+
+```
+
+`read.big.matrix` results in 2 files, a binary file-backing .bin and a shared descriptor file .desc. These 2 files, helps the user to call the data immediately for future use so we don't have to recreate the memory-mapped file all over again and waste unnecessary time. 
+
+## `attach.big.matrix`
+
+To call the memory mapped data directly, we use,
+```{r 3}
+library(bigmemory)
+
+x<-dget("medicares.desc")
+system.time(medicares <- attach.big.matrix(x))
+
+```
+We can see that the time needed to read the file is almost equal to 0.
+
+While the time to read from the .csv file directly is very much longer,
+
+```{r 4}
+system.time(csvF<-read.csv('2010_BSA_Carrier_PUF.csv'))
+
+```
+
+## description
+
+The description including the name of columns, number of rows and columns, the binary backup file's name, of the big.matrix object medicares is as follows,
+
+```{r 5}
+describe(medicares)
+```
+
+The dimension of the x object are similar to the dimensions of the main data set, which assures us that nothing has been lost during the transformation as seen here,
+
+```{r 6}
+dim(medicares)
+dim(View(read.csv('2010_BSA_Carrier_PUF.csv')))
+```
+
+## `sub.big.matrix`
+
+We can now see, that x has an insignificant size and is classed as a `big.matrix` object  that has a pointer to a C++  matrix on the disk,
+
+```{r 7}
+pryr::object_size(medicares)
+
+sub.big.matrix(medicares) #or just medicares
+
+```
+
+Also this object is backed and shared on the memory,
+
+```{r 8}
+
+cat(sprintf('is filebacked ?: %s \n',is.filebacked(medicares)))
+
+cat(sprintf('is big.matrix ? :%s \n',is.big.matrix(medicares)))
+
+cat(sprintf('is shared ?:%s \n',is.shared(medicares)))
+
+```
+
+## summary
+
+Now, we're going to see a summary of statistics of what is inside the medicares variable we just created by calling,
+```{r 9}
+
+summary(head(medicares))
+```
+
+The range return the minimum and maximum between the parameters included, so while using `na.rm=TRUE`, it returns if the `na` should be omitted.
+
+```{r 10}
+range(medicares[,11], na.rm = TRUE)
+```
+Which is not the case in this column.
+
+# Functions
+
+Many functions support the big.matrix objects including the ones we've already used such as:
+* `big.matrix()` 
+* `is.big.matrix()` 
+* `as.big.matrix()` 
+* `hash.mat()`
+* `nrow() `
+* `ncol()`
+* `dim()` 
+* `dimnames()`
+* `tail()` 
+* `head()` 
+* `print()` 
+* `mwhich()`
+* `read.big.matrix()` 
+* `write.big.matrix()`
+* `rownames()` 
+* `colnames()`
+* `add.cols() `
+* `rm.cols()` 
+* `"[" and "[<-"` 
+* `deepcopy()`
+* `typeof()`
+
+While some others are specific to the shared-memory functionality such as:
+`shared.big.matrix()` `is.shared()` `attach.big.matrix()` `describe()`
+`shared.deepcopy()` `rw.mutex()` `attach.rw.mutex()`
+
+And of course some of the basic functions can also be used:
+`colmin()` `min()` `max()` `colmax()`
+`colrange()` `range()` `colmean()` `mean()`
+`colvar()` `colsd()` `colsum()` `sum()`
+`colprod()` `prod()` `kmeans.big.matrix()` `summary()`
+`biglm.big.matrix()` `bigglm.big.matrix()`
+
+We will try to demonstrates the use of most of the rest in what follows.
+
+## `deepcopy()`
+
+To duplicate the big.matrix object, Kane & Emerson provided us with `deepcopy()` function because traditional syntax would only copy
+the object that means the pointer to the big.matrix rather than the `big.matrix` itself as we can see here,
+
+```{r 11}
+medicarescopy <- medicares
+medicarescopy
+medicares
+# medicares pointer : 0x0000023e0521ba90
+```
+
+That's why the importance of using the `deepcopy()` function,
+
+```{r 12}
+# deepcopy(x, # big.matrix
+# cols = NULL, 
+# rows = NULL,
+# y = NULL, #optional destination object
+# type = NULL, 
+# separated = NULL, # use separated column organization of the data
+# backingfile = NULL, # binary file-backing name
+# backingpath = NULL, # path to the file
+# descriptorfile = NULL, # .desc file-backing
+# binarydescriptor = FALSE, 
+# shared = options()$bigmemory.default.shared # true by default
+# )
+
+medicaresdc <- deepcopy(medicares,1:10,backingfile = "medicaresdc.bin",descriptorfile = "medicaresdc.desc")
+dim(medicaresdc)
+```
+
+Now we can see, that the new copy has a different pointer and is a totally different big.matrix object,
+
+```{r 13}
+medicaresdc
+```
+
+## `dimnames`
+dimnames can retrieve or set the dimnames of an object
+
+```{r 14}
+dimnames(medicares)
+
+# dimnames(x) <- value #a possibel value 
+```
+
+## extract or replace elements
+
+To extract or replace big.matrix elements we use
+```{r 15}
+# medicares[i, j, drop]
+
+medicares[1, 1, drop=FALSE] 
+
+```
+
+i and j are the row and column respectively, while the use of drop is to reduce the dimensions of the array-like R object returned.
+
+
+```{r 16}
+medicares[1, 1, drop=TRUE] # reduces the dimensions with drop=TRUE
+```
+
+## `flush()`
+
+flush() writes any modified information or data (in RAM) to the file-backing (in disk) and returns a TRUE or FAlSE to indicate the successfulness of the operation
+
+```{r 17}
+medicarescopy[1,1] <- 5
+# flush(medicarescopy)
+medicarescopy[1,1]
+medicares[1,1]
+```
+
+It might seem not a big deal in our example here, but in fact it could be useful for improving performance in cases where allowing the operating system to decide on flushing creates a bottleneck (likely near the threshold of available RAM).
+
+
+```{r 18}
+# GetMatrixSize returns the size of the created matrix in bytes
+GetMatrixSize(medicarescopy)
+
+# Length of a big.matrix object
+length(medicarescopy)
+```
+
+## `morder` and `mpermute`
+
+`morder` (based on the R's function `order`) and `mpermute` do permute and order or sort the row indices to rearrange the `big.matrix` object the way we ask for.
+
+```{r 19, include=FALSE}
+morder(medicarescopy, 2, na.last = TRUE, decreasing = FALSE)
+
+morderCols(medicarescopy, 3, na.last = TRUE, decreasing = FALSE)
+
+# planting the pc so I won't run them
+# mpermute(medicarescopy, order = NULL, cols = NULL, allow.duplicates = FALSE)
+
+# mpermuteCols(medicarescopy, order = NULL, rows = 2, allow.duplicates = FALSE)
+```
+
+`morder` returns an ordering vector while the `mpermute` does not return anything but makes changes in the object. As we can see, we can also do that on the columns with  `morderCols` and `mpermuteCols`.
+
+## `mwhich`
+
+The `mwhich` function for “multi-which” which is based on R's `which` function and it provides us with efficient row selections for the big.matrix objects and high perfomance comparisons between `big.matrix`.
+It can be used as follow,
+
+```{r 20}
+# mwhich(x, cols, vals, comps, op = ‘AND’)
+indices <- mwhich(medicares, 'CAR_LINE_CNT', 46.5, "le")
+
+cat(sprintf('number of CAR_LINE_CNT < 46,5: %s \n',length(indices)))
+
+cat(sprintf('The percentage of this number from the total is: %s %% \n',100*round(length(indices)/dim(medicares)[1],2)))
+
+```
+
+Where
+`x` is the big.matrix object
+`cols` is the column that we're studying (could've been 11 instead of `CAR_LINE_CNT`)
+`vals` is the value we're comparing to
+and `comps` is the logical operator (eq,le,ge, ...).
+`op` can be used to do comparisons on multiple columns (with `AND` or `OR`) as a union.
+
+There are many other uses to the `mwhich` function.
+
+## `write.big.matrix`
+
+The write.big.matrix helps us write the big.matrix object into any kind of file we specify,
+
+```{r 21}
+# write.big.matrix(x, filename, row.names = FALSE, col.names = FALSE, sep = ",")
+system.time(write.big.matrix(medicaresdc,"medicaresdc.txt"))
+```
+
+# `biglm.big.matrix()` and `biglm()` for Linear Regression
+
+One of the basic functions, is Using the Lumley's `biglm.big.matrix()` package. `biglm` stands for "bounded memory linear regression" which can also be used by calling `bigglm.big.matrix()`
+
+```{r 22}
+library(biglm)
+require(foreach)
+require(DBI)
+library(biganalytics)
+
+```
+
+
+```{r 23}
+lm.1 = biglm.big.matrix( CAR_LINE_ICD9_DGNS_CD ~ BENE_AGE_CAT_CD, data = medicares, fc = "BENE_AGE_CAT_CD")
+
+print(summary(lm.1))
+```
+
+In this example, we try to use Age of the beneficiary to try to predict the most affected by the diseases. As it appears, those who are 85 and older(6) have more deseases than the others.
+
+
+```{r 24}
+lm.2 = biglm.big.matrix( CAR_HCPS_PMT_AMT ~ BENE_AGE_CAT_CD, data = medicares, fc = "BENE_AGE_CAT_CD")
+#biglm
+print(summary(lm.2))
+```
+while in this example, it appears that those who have between 70 and 74 years of age (3) have the biggest amount of paiments.
+
+
+`shared.big.matrix` can help us create a `big.matrix` object on a shared memory
+
+## `biglm` mathematics based equations 
+
+The mathematics behind biglm are based on considering the linear model n > p:
+$$y=X\beta+\epsilon$$
+so the least square estimation is 
+$$\hat{\beta}=(X^T X)^{-1}X^Ty $$
+That if we encounter a tall data, the R's basic lm.fit use $O(np+p^2)$ of the memory.
+This is where the Biglm methods come for rescue, as it tries to compute the decomposition of $X=QR$ and $Q^Ty$ which leads us to the value of $\beta$
+
+$$R\beta=Q^Ty$$
+The function uses only $O(p^2)$ in front of p variables and then, by calling update, the fitted object can be updated with more data.
+
+
+# `bigkmeans`
+
+We were also able to use bigkmeans that can apply the kmeans method on the specified data,
+
+```{r 25}
+# install.packages('factoextra')
+library(factoextra)
+# bigkmeans(medicares, 2, iter.max = 10, nstart = 1)
+bkm<- bigkmeans(scale(medicares[,10]), 10)  
+# 
+# fviz_cluster(bkm, data = bkm$centers,
+#              palette = c("#2E9FDF", "#00AFBB"), 
+#              geom = "point",
+#              ellipse.type = "convex", 
+#              ggtheme = theme_bw()
+#              )
+
+plot(x = scale(medicares[,8]), y = scale(medicares[,10]), xlab = 'Type of Services', ylab= 'Paiment Amount', col = bkm$cluster)
+```
+
+# Parallelization
+
+`big.matrix` also provides us with a user friendly parallelizing methods as 
+* Its structure support the shared memory for parallel computing 
+* using reference to avoid uncalled for copies 
+* column-major format that can work under the legacy linear algebra packages
+
+## `foreach`
+
+At first, we call the parallel library and check the number of cores on the pc,
+
+```{r 26}
+library(parallel)
+cores <- detectCores() ## How many cores do I have?
+print(cores)
+```
+ 
+Than we call the `foreach` function to decompose the data on multiple `chunks` and `cluster` controlled by the different cores,
+
+```{r 27}
+dataX <- attach.big.matrix(dget("medicares.desc"))
+Xdes <- describe(dataX)
+
+XtX.big <- function(X.des, ng = 1) {
+readchunk <- function(X, g, size.chunk) {
+rows <- ((g - 1) * size.chunk + 1):(g * size.chunk)
+chunk <- X[rows,]
+}
+res <- foreach(g = 1:ng, .packages = c("bigmemory"), .combine = "+") %dopar% {
+X <- attach.big.matrix(X.des)
+size.chunk <- nrow(X) / ng
+chunk.X <- readchunk(X, g, size.chunk)
+# chunk.Y <- readchunk(Y, g, size.chunk)
+term <- t(chunk.X) %*% chunk.X
+}
+return(res)
+}
+library(doSNOW)
+cl <- makeCluster(4)
+registerDoSNOW(cl)
+cl <- makeCluster(4)
+res.big <- XtX.big(Xdes,ng=10)
+stopCluster(cl)
+summary(res.big)
+```
+
+## `foreach` mathematics based equation
+
+This parallel computing with `foreach` is based in its mathematical background on the computation by chunk of the big.matrix objects X and Y
+$$(X^TY)=\sum_{g=1}^{G}X_{(g)}^TY_{(g)}$$
+
+# Conclusion
+
+To conclude, the `bigmemory` package has proven to be very useful with optimized memory consumption. The problems encountered were not finding all the functions listed in the package when called in the R script.
+
+Another good impression, is that this library can apply many important methods from those we have learned in other courses such as PCA (principal component analysis) by installing the `bigpca` library, which can also be said for the `bigrf` (RadomForest), `biglars` (least regression and LASSO), `biglasso` (lasso model fitting) and `bigstatr` (for statistical purposes). 
+
+The downside of this package is that it only works with matrices, which means a faster way of calculating for the pc but a more difficult way to understand and visualize well from the user's point of view, this is where the `ff` and the `RevoScaleR` packages have the upper hand in the battle.
